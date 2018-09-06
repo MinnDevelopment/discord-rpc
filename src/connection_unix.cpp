@@ -36,6 +36,16 @@ static const char* GetTempPath()
     return temp;
 }
 
+static bool IsSnap(const char* tempPath)
+{
+    size_t tlen = strlen(tempPath);
+    char* path = (char*)malloc(tlen + 14);
+    snprintf(path, tlen + 14, "%s/snap.discord", tempPath);
+    bool exists = !access(path, F_OK);
+    free(path);
+    return exists;
+}
+
 /*static*/ BaseConnection* BaseConnection::Create()
 {
     PipeAddr.sun_family = AF_UNIX;
@@ -63,9 +73,15 @@ bool BaseConnection::Open()
     setsockopt(self->sock, SOL_SOCKET, SO_NOSIGPIPE, &optval, sizeof(optval));
 #endif
 
+    const char* path;
+    if (IsSnap(tempPath)) {
+        path = "%s/snap.discord/discord-ipc-%d";
+    }
+    else {
+        path = "%s/discord-ipc-%d";
+    }
     for (int pipeNum = 0; pipeNum < 10; ++pipeNum) {
-        snprintf(
-          PipeAddr.sun_path, sizeof(PipeAddr.sun_path), "%s/discord-ipc-%d", tempPath, pipeNum);
+        snprintf(PipeAddr.sun_path, sizeof(PipeAddr.sun_path), path, tempPath, pipeNum);
         int err = connect(self->sock, (const sockaddr*)&PipeAddr, sizeof(PipeAddr));
         if (err == 0) {
             self->isOpen = true;
